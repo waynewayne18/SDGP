@@ -5,10 +5,10 @@ from xgboost import XGBRegressor
 
 
 class Algo:
-    def __init__(self, training_weeks=6):
+    def __init__(self,forecasting_for, training_weeks=6):
         # training_weeks controls both the test set size and the forecast length
         self.training_weeks = training_weeks
-
+        self.forecasting_for = forecasting_for
         # ── Load raw CSV files ────────────────────────────────────────────────
         # Coffee file has a header row that needs to be skipped
         self.croissant = pd.read_csv("Croissant_Sales.csv", header=0)
@@ -87,10 +87,12 @@ class Algo:
         # Drop rows where lag/rolling values could not be computed (start of the series)
         return df.dropna()
 
-    def forecast(self, days=None):
+    def forecast(self, forecasting_for, days=None):
         # Default forecast length is based on the training window
         if days is None:
             days = self.training_weeks * 7
+        forecast_days = forecasting_for * 7
+        print(forecasting_for, "--------------------------------------------------")
 
         history = self.all_products.copy()
         all_forecasts = []
@@ -104,8 +106,9 @@ class Algo:
             )
             product_cat = product_history["product_cat"].iloc[0]
             future_predictions = []
+            print (forecast_days)
 
-            for day in range(1, days + 1):
+            for day in range(1, forecast_days + 1):
                 # Always predict one day beyond the last known date
                 future_date   = product_history["date"].max() + pd.Timedelta(days=1)
                 recent_values = product_history["value"].values

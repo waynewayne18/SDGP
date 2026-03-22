@@ -69,10 +69,14 @@ for name in file_dict:
 st.sidebar.divider()
 
 # Training window controls how many weeks of data are used as the test set
-# and how many days ahead the model forecasts
 st.sidebar.write("**Training Window**")
 training_weeks = st.sidebar.select_slider(
     "Weeks", options=[4, 5, 6, 7, 8], value=6, label_visibility="collapsed"
+)
+#Forecast length controls how far ahead the model forecasts
+st.sidebar.write("**Forecast Length**")
+forecasting_for = st.sidebar.select_slider(
+    "Weeks", options=[4, 5, 6, 7, 8, 9, 10, 11, 12], value=8, label_visibility="collapsed"
 )
 
 st.sidebar.divider()
@@ -101,7 +105,7 @@ selected_month = st.sidebar.radio(
 # The model is only re-trained when training_weeks changes — not on every page reload.
 @st.cache_resource
 def load_algo(weeks):
-    algo = Algo(training_weeks=weeks)
+    algo = Algo(forecasting_for, training_weeks=weeks)
     maes = algo.Predictor()   # trains the model and returns MAE per product
     return algo, maes
 
@@ -200,14 +204,14 @@ else:
         st.caption("Forecast always starts from the last available date in the dataset.")
 
         target = st.radio("Select Product", options=active_products, horizontal=True)
-        forecast_days = training_weeks * 7
+        forecast_days = forecasting_for * 7
 
         # Cache forecast results so the model does not re-run on every interaction
         @st.cache_data
-        def get_forecast(weeks):
-            return algo.forecast()
+        def get_forecast(forecasting_for, weeks):
+            return algo.forecast(forecasting_for)
 
-        forecast_df = get_forecast(training_weeks)
+        forecast_df = get_forecast(forecasting_for, training_weeks)
 
         # Filter to the selected product and rename columns for display
         pred_df = forecast_df[forecast_df["product"] == target].rename(
@@ -254,6 +258,7 @@ else:
         for i, w in enumerate([4, 5, 6, 7, 8]):
             if cols[i].checkbox(f"{w} weeks", value=defaults[w], key=f"cmp_week_{w}"):
                 selected_weeks.append(w)
+        
 
         if not selected_weeks:
             st.warning("Please select at least one training window.")
@@ -263,11 +268,11 @@ else:
             for weeks in selected_weeks:
                 # Each window has its own cached model — no re-training needed
                 @st.cache_data
-                def get_comparison_forecast(w):
+                def get_comparison_forecast(forecasting_for, w):
                     a, _ = load_algo(w)
-                    return a.forecast(days=w * 7)
+                    return a.forecast(forecasting_for, days=w * 7, )
 
-                w_forecast = get_comparison_forecast(weeks)
+                w_forecast = get_comparison_forecast(forecasting_for, weeks)
                 w_pred = w_forecast[w_forecast["product"] == compare_target]
 
                 # Add one line per training window to the same figure
@@ -298,7 +303,7 @@ else:
                 _, w_maes = load_algo(weeks)
                 rows.append({
                     "Training Window": f"{weeks} weeks",
-                    "Forecast Days":   weeks * 7,
+                    "Forecast Days":   forecasting_for * 7,
                     "MAE":             f"{w_maes[product_idx]:.2f}",
                 })
             st.table(pd.DataFrame(rows))
